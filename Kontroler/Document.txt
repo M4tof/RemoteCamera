@@ -1,0 +1,3 @@
+47*2 na diody
+1kOHM rezystor na photo
+10k OHM potencjometr
