@@ -1,9 +1,9 @@
 #include <Arduino.h>
 #include <Servo.h>
 
-const int LED = 5;
-const int BASE_SERVO = 10;
-const int UPPER_SERVO = 11;
+const int LED = 3;
+const int BASE_SERVO = 5;
+const int UPPER_SERVO = 6;
 
 Servo base_servo;
 Servo upper_servo;
@@ -16,6 +16,8 @@ void setup() {
   pinMode(LED, OUTPUT);
   base_servo.write(90); // Ustawienie domyślnej pozycji
   upper_servo.write(90); // Ustawienie domyślnej pozycji
+
+  // delay(50000);
 }
 
 void loop() {
@@ -41,7 +43,7 @@ void loop() {
         if (value >= 20 && value <= 160) {
           upper_servo.write(value);
         } else {
-          Serial.println("Upper servo value out of range (0-180).");
+          Serial.println("Upper servo value out of range (20-160).");
         }
         break;
 
