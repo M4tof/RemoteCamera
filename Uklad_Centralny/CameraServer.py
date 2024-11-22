@@ -6,6 +6,7 @@ import threading
 import time
 import socket
 import serial
+import bluetooth
 from LCD import LCD
 import signal
 import sys
@@ -207,7 +208,7 @@ def lcdControler():
                     lcd.message("Wartosci kamery:",1)  # Clear the second line
                     lcd.message(scroll_text,2)  # Display the current window of text
                     time.sleep(0.4)
-                    if Current != lcdState:
+                    if Current != lcdState or stop_threads:
                         break
 
         time.sleep(5/100)
@@ -230,14 +231,25 @@ def view_settings():
     })
 
 
+def cleanup():
+    global stop_threads
+    print("Cleaning up and shutting down...")
+    
+    stop_threads = True
+    time.sleep(1)
+    picam2.stop()
+    ser.close()
+    
+    lcd.clear()
+    lcd.backlight = False
+    
+    print("Cleanup complete. Exiting...")
+    sys.exit(0)
+
 if __name__ == '__main__':
 
     def signal_handler(sig, frame):
-        print("Cleaning up and shutting down...")
-        stop_threads = True
-        picam2.stop()
-        ser.close() 
-        sys.exit(0)   
+        cleanup()
 
     signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
     signal.signal(signal.SIGTERM, signal_handler) # Handle termination signals
@@ -251,10 +263,4 @@ if __name__ == '__main__':
     try:
         app.run(host='0.0.0.0', port=5000)
     finally:
-        stop_threads = True
-        time.sleep(1)
-        picam2.stop()
-        ser.close()
-        lcd.clear()
-        lcd.backlight = False
-        print("Clean up complete.")
+        cleanup()
