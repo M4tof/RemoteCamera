@@ -7,6 +7,10 @@ import time
 import socket
 import serial
 from LCD import LCD
+import signal
+import sys
+
+stop_threads = False
 
 exposureTimeMultiplier = 1
 isoValue = 1.0
@@ -29,14 +33,12 @@ lcd = LCD(2, 0x27, True)
 ipAddress = socket.gethostbyname(socket.gethostname())
 
 app = Flask(__name__)
-# Initialize the Picamera2 instance
-picam2 = Picamera2()
 
+picam2 = Picamera2()
 # Configure the camera for preview mode
 camera_config = picam2.create_preview_configuration(
 	transform=Transform(hflip=True, vflip=True), 
-	buffer_count = 4
-	)
+	buffer_count = 4)
 picam2.configure(camera_config)
 # Start the camera
 picam2.start()
@@ -90,7 +92,7 @@ def index():
             }
 
             // Set an interval to fetch new settings every 5 seconds
-            setInterval(fetchSettings, 5000); // Fetch every 5 seconds
+            setInterval(fetchSettings, 100); // Fetch every 5 seconds
 
             // Initial fetch to populate the settings on page load
             fetchSettings();
@@ -180,27 +182,43 @@ def index():
 #         #     exposureTimeMultiplier = 1
 
 def lcdControler():
-    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier
+    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads
     Current = lcdState
 
-    while True:
+    while not stop_threads:
         if Current != lcdState:
             lcd.clear()
+            Current = lcdState
         match lcdState:
             case 0:
                 lcd.message("Serwer na: ", 1)
                 lcd.message(ipAddress + ":5000", 2)
             case 1:
-                lcd.message("Wartość odczytanego oświetlenia: ",1)
-                lcd.message(lightRead,2)
+                lcd.message("Oswietlenie: ",1)
+                lcd.message(str(lightRead),2)
             case 2:
-                lcd.message("Dolne serwo: " + servoBase ,1)
-                lcd.message("Górne serwo: " + servoUpper,2)
+                lcd.message("Dolne serwo:" + str(servoBase) ,1)
+                lcd.message("Gorne serwo:" + str(servoUpper),2)
             case _:
-                lcd.message("WB: " + whiteBalanceBlue + ",WR: " + whiteBalanceRed,1)
-                lcd.message("Iso: " + isoValue + ", EXPT: " + exposureTimeMultiplier, 2)
-        time.sleep(1/1000)
+                text = f"WB: {whiteBalanceBlue}, WR: {whiteBalanceRed}, Iso: {isoValue}, EXPT: {exposureTimeMultiplier} "
+                full_text = text + text
+                for i in range(len(text)):  # 16 is the number of characters that fit on the LCD screen
+                    scroll_text = full_text[i:i+16]
+                    lcd.message("Wartosci kamery:",1)  # Clear the second line
+                    lcd.message(scroll_text,2)  # Display the current window of text
+                    time.sleep(0.4)
+                    if Current != lcdState:
+                        break
 
+        time.sleep(5/100)
+
+def DebugChanger():
+    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier
+    while True:
+        time.sleep(5)
+        lcdState += 1
+        lcdState = lcdState%4
+        isoValue += 1
 
 @app.route('/view_settings')
 def view_settings():
@@ -213,12 +231,30 @@ def view_settings():
 
 
 if __name__ == '__main__':
-    # Start the ISO-changing thread
+
+    def signal_handler(sig, frame):
+        print("Cleaning up and shutting down...")
+        stop_threads = True
+        picam2.stop()
+        ser.close() 
+        sys.exit(0)   
+
+    signal.signal(signal.SIGINT, signal_handler)  # Handle Ctrl+C
+    signal.signal(signal.SIGTERM, signal_handler) # Handle termination signals
+
     lcd_thread = threading.Thread(target=lcdControler, daemon=True)
     lcd_thread.start()
-    # iso_thread = threading.Thread(target=change_settings, daemon=True)
-    # iso_thread.start()
+    
+    changer_thread = threading.Thread(target=DebugChanger, daemon=True)
+    changer_thread.start()
 
-    # Run the Flask app
-    app.run(host='0.0.0.0', port=5000)
-    ser.close()
+    try:
+        app.run(host='0.0.0.0', port=5000)
+    finally:
+        stop_threads = True
+        time.sleep(1)
+        picam2.stop()
+        ser.close()
+        lcd.clear()
+        lcd.backlight = False
+        print("Clean up complete.")
