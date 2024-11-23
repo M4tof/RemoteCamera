@@ -20,14 +20,18 @@ whiteBalanceBlue = 1.0
 
 aktualnaZmienna = 0
 
-servoBase = 90
-servoUpper = 90
+servoBase = 100
+servoUpper = 70
 
 ledLights = [255,127,0]
+lightValue = 20
 lightRead = 1000
 ledState = 0
 
 lcdState = 0
+
+executiveAlive = 0
+controllerAlive = 0
 
 ser = serial.Serial('/dev/ttyAMA0', 9600)
 lcd = LCD(2, 0x27, True) 
@@ -114,29 +118,29 @@ def find_esp32_device(target_name="Wireless Controller ESP32"): #todo: zmienic n
     return None  # Return None if ESP32 is not found
 
 
-def receive_messages(client_sock):
-        try:
-            data = client_sock.recv(1024).decode("utf-8")
-            if not data:
-                print("Connection closed by client.")
-            print(f"\nClient: {data}")
-        except bluetooth.BluetoothError as e:
-            print(f"Error receiving data: {e}")
-            break
+# def receive_messages(client_sock):
+#         try:
+#             data = client_sock.recv(1024).decode("utf-8")
+#             if not data:
+#                 print("Connection closed by client.")
+#             print(f"\nClient: {data}")
+#         except bluetooth.BluetoothError as e:
+#             print(f"Error receiving data: {e}")
+#             break
 
-def send_messages(client_sock):
-    """Thread function to continuously send messages."""
-    while True:
-        try:
-            message = input("You: ")
-            if message.lower() == "exit":
-                print("Ending chat.")
-                client_sock.close()
-                break
-            client_sock.send(message + "\n")
-        except bluetooth.BluetoothError as e:
-            print(f"Error sending data: {e}")
-            break
+# def send_messages(client_sock):
+#     """Thread function to continuously send messages."""
+#     while True:
+#         try:
+#             message = input("You: ")
+#             if message.lower() == "exit":
+#                 print("Ending chat.")
+#                 client_sock.close()
+#                 break
+#             client_sock.send(message + "\n")
+#         except bluetooth.BluetoothError as e:
+#             print(f"Error sending data: {e}")
+#             break
 
 def bluetooth_control(): 
     global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads
@@ -151,8 +155,8 @@ def bluetooth_control():
         #receive_thread = threading.Thread(target=receive_messages, args=(client_sock,), daemon = True)
         #send_thread = threading.Thread(target=send_messages, args=(client_sock,), daemon = True)
 
-    Serial read from esp32
-    przetwórz wiadomość
+    # Serial read from esp32
+    # przetwórz wiadomość
 #         #for char in wiadomość
 
 #     #jeśli up down to zmień zmienną
@@ -230,7 +234,7 @@ def bluetooth_control():
 #         #     exposureTimeMultiplier = 1
 
 def lcdControler():
-    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads
+    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads, executiveAlive,controllerAlive
     Current = lcdState
 
     while not stop_threads:
@@ -247,7 +251,7 @@ def lcdControler():
             case 2:
                 lcd.message("Dolne serwo:" + str(servoBase) ,1)
                 lcd.message("Gorne serwo:" + str(servoUpper),2)
-            case _:
+            case 3:
                 text = f"WB: {whiteBalanceBlue}, WR: {whiteBalanceRed}, Iso: {isoValue}, EXPT: {exposureTimeMultiplier} "
                 full_text = text + text
                 for i in range(len(text)):  # 16 is the number of characters that fit on the LCD screen
@@ -257,15 +261,24 @@ def lcdControler():
                     time.sleep(0.4)
                     if Current != lcdState or stop_threads:
                         break
+            case _:
+                if executiveAlive > 0:
+                    lcd.message("Wykonawcze On",1)
+                else:
+                    lcd.message("Wykonawcze Off",1)
+                if controllerAlive > 0:
+                    lcd.message("Kontroler On",2)
+                else:
+                    lcd.message("Kontroler Off",2)
 
-        time.sleep(5/100)
+        # time.sleep(5/100)
 
 def DebugChanger():
     global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier
     while True:
         time.sleep(5)
-        lcdState += 1
-        lcdState = lcdState%4
+        lcdState -= 1
+        lcdState = lcdState%5
         isoValue += 1
 
 @app.route('/view_settings')
@@ -276,6 +289,30 @@ def view_settings():
         "whiteBalanceRed": whiteBalanceRed,
         "whiteBalanceBlue": whiteBalanceBlue
     })
+
+def executiveUnitControll():
+    global executiveAlive, servoBase, servoUpper, lightValue, stop_threads, ser
+    last_command = {"lightValue": None, "servoBase": None, "servoUpper": None}
+
+    while not stop_threads:
+        if ser.in_waiting:
+            data = ser.read(ser.in_waiting).decode('utf-8')
+            executiveAlive = 1000  # Reset heartbeat counter
+
+        # Send commands only if values have changed
+        if last_command["lightValue"] != lightValue:
+            ser.write(f'l{lightValue}\n'.encode('utf-8'))
+            last_command["lightValue"] = lightValue
+
+        if last_command["servoBase"] != servoBase:
+            ser.write(f'b{servoBase}\n'.encode('utf-8'))
+            last_command["servoBase"] = servoBase
+
+        if last_command["servoUpper"] != servoUpper:
+            ser.write(f'u{servoUpper}\n'.encode('utf-8'))
+            last_command["servoUpper"] = servoUpper
+
+        time.sleep(0.1)  # Adjust delay to avoid flooding the UART
 
 
 def cleanup():
@@ -304,6 +341,9 @@ if __name__ == '__main__':
     lcd_thread = threading.Thread(target=lcdControler, daemon=True)
     lcd_thread.start()
     
+    uart_thrad = threading.Thread(target=executiveUnitControll, daemon=True)
+    uart_thrad.start()
+
     changer_thread = threading.Thread(target=DebugChanger, daemon=True)
     changer_thread.start()
 
