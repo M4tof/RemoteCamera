@@ -1,5 +1,6 @@
 import bluetooth
 import threading
+import time
 
 def receive_messages(client_sock):
     """Thread function to continuously receive messages."""
@@ -9,7 +10,7 @@ def receive_messages(client_sock):
             if not data:
                 print("Connection closed by client.")
                 break
-            print(f"Client: {data}")
+            print(f"\nClient: {data}")
         except bluetooth.BluetoothError as e:
             print(f"Error receiving data: {e}")
             break
@@ -28,17 +29,32 @@ def send_messages(client_sock):
             print(f"Error sending data: {e}")
             break
 
+def find_esp32_device(target_name="ESP32_BT_Spammer"):
+    """Function to scan for devices and find the ESP32."""
+    print("Scanning for Bluetooth devices...")
+    nearby_devices = bluetooth.discover_devices(duration=8, lookup_names=True, flush_cache=True)
+
+    # Search for the ESP32 device by name
+    for addr, name in nearby_devices:
+        print(f"Found device: {name} ({addr})")
+        if target_name in name:
+            return addr  # Return the address if the ESP32 is found
+
+    return None  # Return None if ESP32 is not found
+
 def start_bluetooth_chat():
     try:
-        # Create a Bluetooth socket
-        server_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-        port = 1
-        server_sock.bind(("", port))
-        server_sock.listen(1)
-
-        print("Waiting for connection...")
-        client_sock, client_info = server_sock.accept()
-        print(f"Connected to {client_info}")
+        # Find the ESP32 device
+        esp32_address = find_esp32_device(target_name="ESP32_BT_Spammer")
+        if esp32_address is None:
+            print("ESP32 not found. Exiting...")
+            return
+        
+        print(f"Found ESP32 device with address: {esp32_address}")
+        # Create a Bluetooth socket and connect to the ESP32
+        client_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+        client_sock.connect((esp32_address, 1))  # Connect to ESP32 RFCOMM port 1
+        print(f"Connected to ESP32 at {esp32_address}")
 
         print("You can now start chatting! Type 'exit' to end the chat.")
 
@@ -56,7 +72,8 @@ def start_bluetooth_chat():
     except bluetooth.BluetoothError as e:
         print(f"Bluetooth error: {e}")
     finally:
-        server_sock.close()
+        if 'client_sock' in locals() and client_sock:
+            client_sock.close()
         print("Bluetooth server closed.")
 
 if __name__ == "__main__":
