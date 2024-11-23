@@ -124,7 +124,6 @@ def receive_messages(client_sock):
         controllerAlive = 1000
         if inputData.strip():  
             espInput = inputData
-            print("BTserial: " + str(espInput))
         return True
     except bluetooth.BluetoothError as e:
         return False
@@ -145,17 +144,21 @@ def input_processing():
     parsing = False
     number_str = ""
     if espInput:
+        print("Input => " + str(espInput))
         for char in espInput:
             if parsing and char.isdigit():
                     number_str += char
-            if char == 'U':
+            if char == 'U' and espInput != None:
                 currVar += 1
-                print("State: " + str(currVar))
                 currVar %= 8
+                print("State: " + str(currVar))
+                espInput = None
                 break
-            elif char == 'D':
+            elif char == 'D' and espInput != None:
                 currVar -= 1
                 currVar %= 8
+                print("State: " + str(currVar))
+                espInput = None
                 break
             elif char == 'S':
                 parsing = True
@@ -216,8 +219,14 @@ def input_processing():
             lightValue = int(255 - lightRead*255/minLight)
         else:
             lightValue = ledLights[ledState]
-        # print("LED set to react to => " + str(lightRead) + " light value.")
-        # print("LED power set to => " + str(lightValue))
+
+        print("LED set to react to => " + str(lightRead) + " light value.")
+        print("LED power set to => " + str(lightValue))
+        
+        print("Camera settings set to: WB-" + str(whiteBalanceBlue) + " WR-" + str(whiteBalanceRed)
+            + " sharpness-" + str(sharpness) + " analogueGain-" +str(analogueGain))
+
+        picam2.set_controls({"Sharpness": sharpness, "AnalogueGain": analogueGain, "ColourGains": (whiteBalanceRed,whiteBalanceBlue)})
 
 
 def bluetooth_control(): 
