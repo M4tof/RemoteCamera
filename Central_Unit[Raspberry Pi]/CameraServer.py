@@ -14,9 +14,9 @@ import sys
 stop_threads = False
 
 sharpness = 1
-analogueGain = 1
-whiteBalanceRed = 1.0
-whiteBalanceBlue = 1.0
+analogueGain = 3
+whiteBalanceRed = 0.0
+whiteBalanceBlue = 0.0
 
 currVar = 0
 espInput = ""
@@ -79,7 +79,7 @@ def index():
         <img src="/video_feed" />
         <h2>Current Camera Settings:</h2>
         <ul id="settings">
-            <li>Sharpness: <span id="sharpness"></span> µs</li>
+            <li>Sharpness: <span id="sharpness"></span></li>
             <li>Analogue Gain: <span id="analogueGain"></span></li>
             <li>White Balance Red: <span id="whiteBalanceRed"></span></li>
             <li>White Balance Blue: <span id="whiteBalanceBlue"></span></li>
@@ -322,8 +322,8 @@ def executiveUnitControll():
     while not stop_threads:
         if ser.in_waiting:
             data = ser.read(ser.in_waiting).decode('utf-8')
-            executiveAlive = 1000  # Reset heartbeat counter
-
+            executiveAlive = 250000  # Reset heartbeat counter
+        
         executiveAlive -= 1
 
         # Send commands only if values have changed
