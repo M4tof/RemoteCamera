@@ -100,12 +100,59 @@ def index():
         </script>
     '''
 
+def find_esp32_device(target_name="Wireless Controller ESP32"): #todo: zmienic nazwe
+    """Function to scan for devices and find the ESP32."""
+    print("Scanning for Bluetooth devices...")
+    nearby_devices = bluetooth.discover_devices(duration=8, lookup_names=True, flush_cache=True)
 
-# def change_settings(): 
-#     #while true
+    # Search for the ESP32 device by name
+    for addr, name in nearby_devices:
+        print(f"Found device: {name} ({addr})")
+        if target_name in name:
+            return addr  # Return the address if the ESP32 is found
 
-#     #Serial read from esp32
-#     #przetwórz wiadomość
+    return None  # Return None if ESP32 is not found
+
+
+def receive_messages(client_sock):
+        try:
+            data = client_sock.recv(1024).decode("utf-8")
+            if not data:
+                print("Connection closed by client.")
+            print(f"\nClient: {data}")
+        except bluetooth.BluetoothError as e:
+            print(f"Error receiving data: {e}")
+            break
+
+def send_messages(client_sock):
+    """Thread function to continuously send messages."""
+    while True:
+        try:
+            message = input("You: ")
+            if message.lower() == "exit":
+                print("Ending chat.")
+                client_sock.close()
+                break
+            client_sock.send(message + "\n")
+        except bluetooth.BluetoothError as e:
+            print(f"Error sending data: {e}")
+            break
+
+def bluetooth_control(): 
+    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads
+    esp32_address = find_esp32_device(target_name="Wireless Controller ESP32")
+    client_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+    while client_sock.connect((esp32_address, 1)) is None: #todo: sprawdz co zwraca funkcja (ale nie ma dokumentacji xD)
+            esp32_address = find_esp32_device(target_name="Wireless Controller ESP32")
+    while not stop_threads:
+        receive_messages(client_sock)
+        #send_messages(client_sock)
+        #przetwarzanie()
+        #receive_thread = threading.Thread(target=receive_messages, args=(client_sock,), daemon = True)
+        #send_thread = threading.Thread(target=send_messages, args=(client_sock,), daemon = True)
+
+    Serial read from esp32
+    przetwórz wiadomość
 #         #for char in wiadomość
 
 #     #jeśli up down to zmień zmienną
