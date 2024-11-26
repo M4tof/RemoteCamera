@@ -7,8 +7,8 @@ const int DOWN_BUTTON = 4;
 const int LEFT_BUTTON = 5;
 const int RIGHT_BUTTON = 12;
 
-const int DARK_DIM_LIMIT = 1000;
-const int DIM_BRIGHT_LIMIT = 1500;
+//const int DARK_DIM_LIMIT = 1000;
+//const int DIM_BRIGHT_LIMIT = 1500;
 
 const int StateLED0 = 23;
 const int StateLED1 = 22;
@@ -19,29 +19,21 @@ volatile char Presses[Presses_Size];
 volatile int pressIndex = 0;
 
 unsigned long previousMillis = 0;
-const unsigned long interval = 5000;
+const unsigned long interval = 500;
 
-volatile int State = 0;
+int State = 0;
 
 BluetoothSerial SerialBT;
 
 void IRAM_ATTR upButtonPress() {
   if (pressIndex < Presses_Size) { 
     Presses[pressIndex++] = 'U';
-    State++;
-    if(State >= 8){
-      State = 0;
-    }
   }
 }
 
 void IRAM_ATTR downButtonPress() {
   if (pressIndex < Presses_Size) {
     Presses[pressIndex++] = 'D';
-    State--;
-    if (State <= -1){
-      State = 7;
-    }
   }
 }
 
@@ -87,35 +79,41 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     
-    int analogValue = analogRead(LIGHT_READ_PIN);
-    Serial.print("Analog Value = ");
-    Serial.print(analogValue);
-    String wiadomosc = 'S' + String(analogValue);
-    SerialBT.println(wiadomosc);
+    int sum = 0;
+    max = -1;
+    min = 99999;
+    for (int i=0; i < 18; i++){
+      int analogValue = analogRead(LIGHT_READ_PIN);
+      suma += analogValue; 
+      if (analogValue > max){
+        max = analogValue;
+      }
+      else if (analogValue < min){
+        min = analogValue;
+      }
+      delay(10);
+    }
 
-    if(analogValue <= DARK_DIM_LIMIT){
-      Serial.println(" Is Dark");
-    }
-    else if (analogValue <= DIM_BRIGHT_LIMIT)
-    {
-      Serial.println(" Is Dim");
-    }
-    else{
-      Serial.println(" Is Bright");
-    }
+    int averageRead = (sum - max - min)/16;
+
+    String wiadomosc = 'S'+String(averageRead); //S2020
+    SerialBT.println(wiadomosc);
   }
 
 
   if (pressIndex > 0) {
-    Serial.print("Button Presses: ");
     for (int i = 0; i < pressIndex; i++) {
-      Serial.print(Presses[i]);
-      Serial.print(" ");
-      SerialBT.print(Presses[i]);
+      SerialBT.println(Presses[i]); //U or D or L or R
     }
-    Serial.println();
-    SerialBT.println();
     pressIndex = 0; // Reset the index after reading presses
+  }
+  
+  if (SerialBT.available()){
+    int incoming = SerialBT.parseInt();
+    if(incoming >= 0 && incoming <=7){
+      State = incoming;
+      delay(10);
+    }
   }
 
   switch (State) {
@@ -159,6 +157,7 @@ void loop() {
     digitalWrite(StateLED1,HIGH);
     digitalWrite(StateLED2,HIGH);
     break;
-}
-  delay(200);
+  }
+
+  delay(100);
 }
