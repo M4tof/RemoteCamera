@@ -18,7 +18,8 @@ isoValue = 1.0
 whiteBalanceRed = 1.0
 whiteBalanceBlue = 1.0
 
-aktualnaZmienna = 0
+currVar = 0
+espInput = ""
 
 servoBase = 100
 servoUpper = 70
@@ -26,9 +27,9 @@ servoUpper = 70
 ledLights = [255,127,0]
 lightValue = 20
 lightRead = 1000
-ledState = 0
+ledState = 3
 
-lcdState = 0
+lcdState = 5
 
 executiveAlive = 0
 controllerAlive = 0
@@ -104,134 +105,162 @@ def index():
         </script>
     '''
 
-def find_esp32_device(target_name="Wireless Controller ESP32"): #todo: zmienic nazwe
-    """Function to scan for devices and find the ESP32."""
-    print("Scanning for Bluetooth devices...")
+def find_esp32_device(target_name="Wireless Controller ESP32"):
     nearby_devices = bluetooth.discover_devices(duration=8, lookup_names=True, flush_cache=True)
-
-    # Search for the ESP32 device by name
     for addr, name in nearby_devices:
-        print(f"Found device: {name} ({addr})")
         if target_name in name:
-            return addr  # Return the address if the ESP32 is found
+            return addr
+    return None
 
-    return None  # Return None if ESP32 is not found
 
+def receive_messages(client_sock):
+    global espInput,controllerAlive
+    try:
+        inputData = client_sock.recv(1024).decode("utf-8").strip()
+        controllerAlive = 1000
+        if inputData.strip():  
+            espInput = inputData
+            print("BTserial: " + str(espInput))
+        return True
+    except bluetooth.BluetoothError as e:
+        return False
 
-# def receive_messages(client_sock):
-#         try:
-#             data = client_sock.recv(1024).decode("utf-8")
-#             if not data:
-#                 print("Connection closed by client.")
-#             print(f"\nClient: {data}")
-#         except bluetooth.BluetoothError as e:
-#             print(f"Error receiving data: {e}")
-#             break
+def send_messages(client_sock):
+    global currVar
+    flag = True
+    while flag:
+        try:
+            client_sock.send(str(currVar)+"\n")
+            flag = False
+        except bluetooth.BluetoothError as e:
+            flag = True
 
-# def send_messages(client_sock):
-#     """Thread function to continuously send messages."""
-#     while True:
-#         try:
-#             message = input("You: ")
-#             if message.lower() == "exit":
-#                 print("Ending chat.")
-#                 client_sock.close()
-#                 break
-#             client_sock.send(message + "\n")
-#         except bluetooth.BluetoothError as e:
-#             print(f"Error sending data: {e}")
-#             break
+def input_processing():
+    #Serial read from esp32
+    global lightRead, espInput, currVar, lightValue, exposureTimeMultiplier, isoValue, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState
+    parsing = False
+    number_str = ""
+    if espInput:
+        for char in espInput:
+            if parsing and char.isdigit():
+                    number_str += char
+            if char == 'U':
+                currVar += 1
+                print("State: " + str(currVar))
+                currVar %= 8
+                break
+            elif char == 'D':
+                currVar -= 1
+                currVar %= 8
+                break
+            elif char == 'S':
+                parsing = True
+                continue
+            elif char == 'L' or char == 'R':
+                match currVar:
+                    case 0:
+                        if char == 'L' and servoBase > 0:
+                            servoBase -= 2
+                        elif char == 'R' and servoBase < 180:
+                            servoBase += 2
+                    case 1:
+                        if char == 'L' and servoUpper > 20:
+                            servoUpper -= 2
+                        elif char == 'R' and servoUpper < 160:
+                            servoUpper += 2
+                    case 2:
+                        if char == 'L':
+                            ledState -= 1
+                        elif char == 'R':
+                            ledState += 1
+                        ledState = ledState%4
+                    case 3:
+                        if char == 'L':
+                            lcdState -= 1
+                        if char == 'R':
+                            lcdState += 1
+                        lcdState %= 5
+                    case 4:
+                        if char == 'L' and whiteBalanceRed > 0:
+                            whiteBalanceRed -= 1
+                        if char == 'R' and whiteBalanceRed < 10:
+                            whiteBalanceRed += 1
+                    case 5:
+                        if char == 'L' and whiteBalanceBlue > 0:
+                            whiteBalanceBlue -= 1
+                        if char == 'R' and whiteBalanceBlue < 10:
+                            whiteBalanceBlue += 1
+                    case 6:
+                        if char == 'L' and exposureTimeMultiplier > 0:
+                            exposureTimeMultiplier -= 1
+                        if char == 'R' and exposureTimeMultiplier < 10:
+                            exposureTimeMultiplier += 1
+                    case _:
+                        if char == 'L' and isoValue > 0:
+                            isoValue -= 1
+                        if char == 'R' and isoValue < 8:
+                            isoValue += 1
+                            
+        if number_str:
+            lightRead = int(number_str)
+        if lightRead > 1400:
+            lightRead = 1400
+        lightRead -= 700
+        if ledState == 3: 
+            lightValue = int(255 - lightRead*255/700)
+        else:
+            lightValue = ledLights[ledState]
+        # print("LED set to react to => " + str(lightRead) + " light value.")
+        # print("LED power set to => " + str(lightValue))
+
 
 def bluetooth_control(): 
-    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads
-    esp32_address = find_esp32_device(target_name="Wireless Controller ESP32")
+    global stop_threads, controllerAlive
+
+    connected = False
+    esp32_address = None
+
+    while esp32_address is None:
+        esp32_address = find_esp32_device(target_name="Wireless Controller ESP32")
+        print("Controller found !")
+
     client_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-    while client_sock.connect((esp32_address, 1)) is None: #todo: sprawdz co zwraca funkcja (ale nie ma dokumentacji xD)
-            esp32_address = find_esp32_device(target_name="Wireless Controller ESP32")
-    while not stop_threads:
-        receive_messages(client_sock)
-        #send_messages(client_sock)
-        #przetwarzanie()
-        #receive_thread = threading.Thread(target=receive_messages, args=(client_sock,), daemon = True)
-        #send_thread = threading.Thread(target=send_messages, args=(client_sock,), daemon = True)
-
-    # Serial read from esp32
-    # przetwórz wiadomość
-#         #for char in wiadomość
-
-#     #jeśli up down to zmień zmienną
-#         #aktualnaZmienna += 1
-#         #aktualnaZmienna -= 1
-#         #aktualnaZmienna = aktualnaZmienna%8
-      
-#     #jeśli [S] to reszta wiadomości do zmapowania na 0-255 dla ledów 
-#         #brake
-
-#     global aktualnaZmienna, exposureTimeMultiplier, isoValue, whiteBalanceRed, whiteBalanceBlue
     
+    def reconnect():
+        nonlocal client_sock, esp32_address, connected
+        while not stop_threads:
+            try:
+                client_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
+                client_sock.connect((esp32_address, 1))
+                connected = True
+                print("Connected to ESP32.")
+                return
+            except bluetooth.BluetoothError as e:
+                print(f"Reconnect failed: {e}. Retrying...")
 
-#     #if read == "L" or read == "R"
-#         match aktualnaZmienna:
-#             case 0:
-#                 #if read = L &&  servoBase > 20 
-#                     #then servoBase -= 1
-#                     #send to arduino
-#                         #message = "Hello from Raspberry Pi!"
-#                         #ser.write(message.encode())
-#                 #elif read = R && servoBase < 160
-#                     #then servoBase += 1
-#                     #send to Arduino
-#             case 1: 
-#                 #if read = L &&  servoUpper > 20 
-#                     #then servoUpper -= 1
-#                     #send to arduino
-#                 #elif read = R && servoUpper < 160
-#                     #then servoUpper += 1
-#                     #send to Arduino
-#             case 2:
-#                 #if read == L
-#                     #then ledState -= 1
-#                 #elif read == R
-#                     #then ledState += 1
-#                 # ledState = ledState%4
-#                 #match ledState
-#                     #case 3:
-#                         #arduino send zmapowane
-#                     #case _:
-#                         #arduino send ledLights[ledState]
-#             case 3:
-#                  #if read == L
-#                     #then lcdState -= 1
-#                 #elif read == R
-#                     #then lcdState += 1
-#                 #lcdState = lcdState%4
-#             case 4:
-#                 #if read == L && whiteBalanceRed > 0
-#                     #then whiteBalanceRed -= 1
-#                 #elif read == R && whiteBalanceRed < 10 
-#                     #then whiteBalanceRed += 1
-#             case 5:
-#                 #if read == L && whiteBalanceBlue > 0
-#                     #then whiteBalanceBlue -= 1
-#                 #elif read == R && whiteBalanceBlue < 10 
-#                     #then whiteBalanceBlue += 1
-#             case 6: 
-#                 #if read == L && exposureTimeMultiplier > 0
-#                     #then exposureTimeMultiplier -= 1
-#                 #elif read == R && exposureTimeMultiplier < 10 
-#                     #then exposureTimeMultiplier += 1
-#             case _:
-#                 #if read == L && isoValue > 0
-#                     #then isoValue -= 1
-#                 #elif read == R && isoValue < 8 
-#                     #then isoValue += 1
+    try:
+        client_sock.connect((esp32_address, 1))
+        connected = True
+    except bluetooth.BluetoothError as e:
+        reconnect()
 
-#         # picam2.set_controls({"AnalogueGain": iso_values[current_index]})
-#         # picam2.set_controls({"ExposureTime": 1000000 * exposureTimeMultiplier })
-#         # exposureTimeMultiplier += 1
-#         # time.sleep(10)
-#         # if exposureTimeMultiplier >= 8:
-#         #     exposureTimeMultiplier = 1
+    while not stop_threads:
+        try:
+            if not connected or controllerAlive <= 0:
+                reconnect()
+
+            if not receive_messages(client_sock):
+                connected = False
+                reconnect()
+            else:
+                input_processing()
+                send_messages(client_sock)
+
+        except bluetooth.BluetoothError as e:
+            connected = False
+            reconnect()
+
+        controllerAlive -= 1
 
 def lcdControler():
     global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads, executiveAlive,controllerAlive
@@ -271,16 +300,6 @@ def lcdControler():
                 else:
                     lcd.message("Kontroler Off",2)
 
-        # time.sleep(5/100)
-
-def DebugChanger():
-    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier
-    while True:
-        time.sleep(5)
-        lcdState -= 1
-        lcdState = lcdState%5
-        isoValue += 1
-
 @app.route('/view_settings')
 def view_settings():
     return jsonify({
@@ -298,6 +317,8 @@ def executiveUnitControll():
         if ser.in_waiting:
             data = ser.read(ser.in_waiting).decode('utf-8')
             executiveAlive = 1000  # Reset heartbeat counter
+
+        executiveAlive -= 1
 
         # Send commands only if values have changed
         if last_command["lightValue"] != lightValue:
@@ -341,11 +362,11 @@ if __name__ == '__main__':
     lcd_thread = threading.Thread(target=lcdControler, daemon=True)
     lcd_thread.start()
     
-    uart_thrad = threading.Thread(target=executiveUnitControll, daemon=True)
-    uart_thrad.start()
+    uart_thread = threading.Thread(target=executiveUnitControll, daemon=True)
+    uart_thread.start()
 
-    changer_thread = threading.Thread(target=DebugChanger, daemon=True)
-    changer_thread.start()
+    bluetooth_thread = threading.Thread(target=bluetooth_control, daemon=True)
+    bluetooth_thread.start()
 
     try:
         app.run(host='0.0.0.0', port=5000)

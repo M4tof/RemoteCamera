@@ -11,6 +11,9 @@ const unsigned long interval = 500;
 Servo base_servo;
 Servo upper_servo;
 
+String inputString = "";  // Stores the received string
+boolean stringComplete = false;
+
 void setup() {
   Serial.begin(9600);
   base_servo.attach(BASE_SERVO);
@@ -20,50 +23,47 @@ void setup() {
   base_servo.write(90); // Setting default position
   upper_servo.write(90);
 
-  // delay(50000); //For assembling the device for the first time with resetting servo position
+  // delay(5000); //For assembling the device for the first time with resetting servo position
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    char input = Serial.read(); // Read first char
-    int value = Serial.parseInt(); // Read integer
+  if (stringComplete) {
+    char command = inputString[0];  // First character
+    int value = inputString.substring(1).toInt();  // Rest of the string as an integer
 
-    // Serial.print("Command: ");
-    // Serial.println(input);     //For debug purposes
-    // Serial.print("Value: ");
-    // Serial.println(value);
-
-    switch (input) {
-      case 'b': // Base servo
-        if (value >= 0 && value <= 180) {
-          base_servo.write(value);
-        }
+    switch (command) {
+      case 'b':
+        if (value >= 0 && value <= 180) base_servo.write(value);
         break;
-
-      case 'u': //upper_servo
-        if (value >= 20 && value <= 160) {
-          upper_servo.write(value);
-        }
+      case 'u':
+        if (value >= 20 && value <= 160) upper_servo.write(value);
         break;
-
-      case 'l': // LED brightness
-        if (value >= 0 && value <= 255) {
-          analogWrite(LED, value);
-        }
+      case 'l':
+        if (value >= 0 && value <= 255) analogWrite(LED, value);
         break;
-
       default:
-        Serial.println("Incorrect Info");
+        Serial.println("E");  // Error message for invalid command
         break;
     }
+
+    inputString = "";  // Clear the string for the next command
+    stringComplete = false;
   }
 
-  unsigned long currentMillis = millis();
-
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
-    Serial.println("Arduino Alive"); //Heartbeat of the arduino to signalise the central_unit that the executive_components are working
+  // Heartbeat signal
+  if (millis() - previousMillis >= interval) {
+    previousMillis = millis();
+    Serial.println("A");
   }
+}
 
-  delay(200);
+void serialEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (inChar == '\n') {  // End of a command
+      stringComplete = true;
+    } else {
+      inputString += inChar;  // Append character to input string
+    }
+  }
 }
