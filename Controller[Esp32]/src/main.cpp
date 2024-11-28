@@ -7,15 +7,11 @@ const int DOWN_BUTTON = 4;
 const int LEFT_BUTTON = 5;
 const int RIGHT_BUTTON = 12;
 
-//const int DARK_DIM_LIMIT = 1000;
-//const int DIM_BRIGHT_LIMIT = 1500;
-
-
 const int StateLED0 = 23;
 const int StateLED1 = 22;
 const int StateLED2 = 21;
 
-const int Presses_Size = 20;
+const int Presses_Size = 1;
 volatile char Presses[Presses_Size];
 volatile int pressIndex = 0;
 
@@ -26,27 +22,42 @@ int State = 0;
 
 BluetoothSerial SerialBT;
 
+const unsigned long debounceTime = 150;
+unsigned long lastPressTime[4] = {0, 0, 0, 0};
+
 void IRAM_ATTR upButtonPress() {
-  if (pressIndex < Presses_Size) { 
-    Presses[pressIndex++] = 'U';
+  if (millis() - lastPressTime[0] >= debounceTime) {
+    if (pressIndex < Presses_Size) {
+      Presses[pressIndex++] = 'U';
+      lastPressTime[0] = millis();
+    }
   }
 }
 
 void IRAM_ATTR downButtonPress() {
-  if (pressIndex < Presses_Size) {
-    Presses[pressIndex++] = 'D';
+  if (millis() - lastPressTime[1] >= debounceTime) {
+    if (pressIndex < Presses_Size) {
+      Presses[pressIndex++] = 'D';
+      lastPressTime[1] = millis();
+    }
   }
 }
 
 void IRAM_ATTR leftButtonPress() {
-  if (pressIndex < Presses_Size) {
-    Presses[pressIndex++] = 'L';
+  if (millis() - lastPressTime[2] >= debounceTime) {
+    if (pressIndex < Presses_Size) {
+      Presses[pressIndex++] = 'L';
+      lastPressTime[2] = millis();
+    }
   }
 }
 
 void IRAM_ATTR rightButtonPress() {
-  if (pressIndex < Presses_Size) {
-    Presses[pressIndex++] = 'R';
+  if (millis() - lastPressTime[3] >= debounceTime) {
+    if (pressIndex < Presses_Size) {
+      Presses[pressIndex++] = 'R';
+      lastPressTime[3] = millis();
+    }
   }
 }
 
