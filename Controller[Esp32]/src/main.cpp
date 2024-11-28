@@ -10,6 +10,7 @@ const int RIGHT_BUTTON = 12;
 //const int DARK_DIM_LIMIT = 1000;
 //const int DIM_BRIGHT_LIMIT = 1500;
 
+
 const int StateLED0 = 23;
 const int StateLED1 = 22;
 const int StateLED2 = 21;
