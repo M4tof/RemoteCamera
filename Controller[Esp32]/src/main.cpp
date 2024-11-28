@@ -80,11 +80,11 @@ void loop() {
     previousMillis = currentMillis;
     
     int sum = 0;
-    max = -1;
-    min = 99999;
+    int max = -1;
+    int min = 99999;
     for (int i=0; i < 18; i++){
       int analogValue = analogRead(LIGHT_READ_PIN);
-      suma += analogValue; 
+      sum += analogValue; 
       if (analogValue > max){
         max = analogValue;
       }
@@ -109,12 +109,16 @@ void loop() {
   }
   
   if (SerialBT.available()){
-    int incoming = SerialBT.parseInt();
-    if(incoming >= 0 && incoming <=7){
-      State = incoming;
+    char incoming = SerialBT.read();
+    String wiadomosc = "State: " + String(incoming);
+
+    if(incoming >= 48 && incoming <=55){
+      State = incoming-48;
       delay(10);
     }
   }
+
+
 
   switch (State) {
   case 0:
