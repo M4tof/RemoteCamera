@@ -13,7 +13,7 @@ import sys
 
 stop_threads = False
 
-exposureTimeMultiplier = 1
+sharpness = 1
 isoValue = 1.0
 whiteBalanceRed = 1.0
 whiteBalanceBlue = 1.0
@@ -37,6 +37,7 @@ lcdState = 5
 executiveAlive = 0
 controllerAlive = 0
 
+
 ser = serial.Serial('/dev/ttyAMA0', 9600)
 lcd = LCD(2, 0x27, True) 
 ipAddress = socket.gethostbyname(socket.gethostname())
@@ -58,7 +59,7 @@ def generate_frames():
         frame = picam2.capture_array()
         if frame is None:
             continue
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Correct indentation here
+        # Correct indentation here
         _, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
@@ -78,7 +79,7 @@ def index():
         <img src="/video_feed" />
         <h2>Current Camera Settings:</h2>
         <ul id="settings">
-            <li>Exposure Time: <span id="exposureTimeMultiplier"></span> µs</li>
+            <li>Sharpness: <span id="sharpness"></span> µs</li>
             <li>ISO Value: <span id="isoValue"></span></li>
             <li>White Balance Red: <span id="whiteBalanceRed"></span></li>
             <li>White Balance Blue: <span id="whiteBalanceBlue"></span></li>
@@ -92,7 +93,7 @@ def index():
                     .then(response => response.json())
                     .then(data => {
                         // Update the HTML elements with the new values
-                        document.getElementById('exposureTimeMultiplier').textContent = data.exposureTimeMultiplier;
+                        document.getElementById('sharpness').textContent = data.sharpness;
                         document.getElementById('isoValue').textContent = data.isoValue;
                         document.getElementById('whiteBalanceRed').textContent = data.whiteBalanceRed;
                         document.getElementById('whiteBalanceBlue').textContent = data.whiteBalanceBlue;
@@ -140,7 +141,7 @@ def send_messages(client_sock):
 
 def input_processing():
     #Serial read from esp32
-    global lightRead, espInput, currVar, lightValue, exposureTimeMultiplier, isoValue, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState
+    global lightRead, espInput, currVar, lightValue, sharpness, isoValue, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState
     parsing = False
     number_str = ""
     if espInput:
@@ -194,10 +195,10 @@ def input_processing():
                         if char == 'R' and whiteBalanceBlue < 10:
                             whiteBalanceBlue += 1
                     case 6:
-                        if char == 'L' and exposureTimeMultiplier > 0:
-                            exposureTimeMultiplier -= 1
-                        if char == 'R' and exposureTimeMultiplier < 10:
-                            exposureTimeMultiplier += 1
+                        if char == 'L' and sharpness >= 0:
+                            sharpness -= 1
+                        if char == 'R' and sharpness < 17:
+                            sharpness += 1
                     case _:
                         if char == 'L' and isoValue > 0:
                             isoValue -= 1
@@ -266,9 +267,10 @@ def bluetooth_control():
             reconnect()
 
         controllerAlive -= 1
+    client_sock.close()
 
 def lcdControler():
-    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, exposureTimeMultiplier,stop_threads, executiveAlive,controllerAlive
+    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, sharpness,stop_threads, executiveAlive,controllerAlive
     Current = lcdState
 
     while not stop_threads:
@@ -286,7 +288,7 @@ def lcdControler():
                 lcd.message("Dolne serwo:" + str(servoBase) ,1)
                 lcd.message("Gorne serwo:" + str(servoUpper),2)
             case 3:
-                text = f"WB: {whiteBalanceBlue}, WR: {whiteBalanceRed}, Iso: {isoValue}, EXPT: {exposureTimeMultiplier} "
+                text = f"White Balance Blue: {whiteBalanceBlue}, White Balance Red: {whiteBalanceRed}, Iso: {isoValue}, Sharpness: {sharpness} "
                 full_text = text + text
                 for i in range(len(text)):  # 16 is the number of characters that fit on the LCD screen
                     scroll_text = full_text[i:i+16]
@@ -308,7 +310,7 @@ def lcdControler():
 @app.route('/view_settings')
 def view_settings():
     return jsonify({
-        "exposureTimeMultiplier": exposureTimeMultiplier,
+        "sharpness": sharpness,
         "isoValue": isoValue,
         "whiteBalanceRed": whiteBalanceRed,
         "whiteBalanceBlue": whiteBalanceBlue
@@ -349,6 +351,7 @@ def cleanup():
     time.sleep(1)
     picam2.stop()
     ser.close()
+    
     
     lcd.clear()
     lcd.backlight = False
