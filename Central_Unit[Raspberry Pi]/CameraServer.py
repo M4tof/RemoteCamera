@@ -14,7 +14,7 @@ import sys
 stop_threads = False
 
 sharpness = 1
-isoValue = 1.0
+analogueGain = 1
 whiteBalanceRed = 1.0
 whiteBalanceBlue = 1.0
 
@@ -80,7 +80,7 @@ def index():
         <h2>Current Camera Settings:</h2>
         <ul id="settings">
             <li>Sharpness: <span id="sharpness"></span> µs</li>
-            <li>ISO Value: <span id="isoValue"></span></li>
+            <li>Analogue Gain: <span id="analogueGain"></span></li>
             <li>White Balance Red: <span id="whiteBalanceRed"></span></li>
             <li>White Balance Blue: <span id="whiteBalanceBlue"></span></li>
         </ul>
@@ -94,7 +94,7 @@ def index():
                     .then(data => {
                         // Update the HTML elements with the new values
                         document.getElementById('sharpness').textContent = data.sharpness;
-                        document.getElementById('isoValue').textContent = data.isoValue;
+                        document.getElementById('analogueGain').textContent = data.analogueGain;
                         document.getElementById('whiteBalanceRed').textContent = data.whiteBalanceRed;
                         document.getElementById('whiteBalanceBlue').textContent = data.whiteBalanceBlue;
                     })
@@ -141,7 +141,7 @@ def send_messages(client_sock):
 
 def input_processing():
     #Serial read from esp32
-    global lightRead, espInput, currVar, lightValue, sharpness, isoValue, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState
+    global lightRead, espInput, currVar, lightValue, sharpness, analogueGain, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState
     parsing = False
     number_str = ""
     if espInput:
@@ -200,10 +200,10 @@ def input_processing():
                         if char == 'R' and sharpness < 17:
                             sharpness += 1
                     case _:
-                        if char == 'L' and isoValue > 0:
-                            isoValue -= 1
-                        if char == 'R' and isoValue < 8:
-                            isoValue += 1
+                        if char == 'L' and analogueGain > 0:
+                            analogueGain -= 1
+                        if char == 'R' and analogueGain < 13:
+                            analogueGain += 1
                             
         if number_str:
             lightRead = int(number_str)
@@ -270,7 +270,7 @@ def bluetooth_control():
     client_sock.close()
 
 def lcdControler():
-    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, isoValue, sharpness,stop_threads, executiveAlive,controllerAlive
+    global lcdState, servoBase, lightRead, whiteBalanceBlue, whiteBalanceRed, analogueGain, sharpness,stop_threads, executiveAlive,controllerAlive
     Current = lcdState
 
     while not stop_threads:
@@ -288,7 +288,7 @@ def lcdControler():
                 lcd.message("Dolne serwo:" + str(servoBase) ,1)
                 lcd.message("Gorne serwo:" + str(servoUpper),2)
             case 3:
-                text = f"White Balance Blue: {whiteBalanceBlue}, White Balance Red: {whiteBalanceRed}, Iso: {isoValue}, Sharpness: {sharpness} "
+                text = f"White Balance Blue: {whiteBalanceBlue}, White Balance Red: {whiteBalanceRed}, Analogue Gain: {analogueGain}, Sharpness: {sharpness} "
                 full_text = text + text
                 for i in range(len(text)):  # 16 is the number of characters that fit on the LCD screen
                     scroll_text = full_text[i:i+16]
@@ -311,7 +311,7 @@ def lcdControler():
 def view_settings():
     return jsonify({
         "sharpness": sharpness,
-        "isoValue": isoValue,
+        "analogueGain": analogueGain,
         "whiteBalanceRed": whiteBalanceRed,
         "whiteBalanceBlue": whiteBalanceBlue
     })
