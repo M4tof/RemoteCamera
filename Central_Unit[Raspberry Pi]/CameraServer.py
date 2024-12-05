@@ -24,6 +24,9 @@ espInput = ""
 servoBase = 100
 servoUpper = 70
 
+maxLight = 1400
+minLight = 700
+
 ledLights = [255,127,0]
 lightValue = 20
 lightRead = 1000
@@ -137,7 +140,7 @@ def send_messages(client_sock):
 
 def input_processing():
     #Serial read from esp32
-    global lightRead, espInput, currVar, lightValue, exposureTimeMultiplier, isoValue, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState
+    global lightRead, espInput, currVar, lightValue, exposureTimeMultiplier, isoValue, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState
     parsing = False
     number_str = ""
     if espInput:
@@ -203,11 +206,13 @@ def input_processing():
                             
         if number_str:
             lightRead = int(number_str)
-        if lightRead > 1400:
-            lightRead = 1400
-        lightRead -= 700
+        if lightRead > maxLight:
+            lightRead = maxLight
+        if lightRead < minLight:
+            lightRead = minLight
+        lightRead -= minLight
         if ledState == 3: 
-            lightValue = int(255 - lightRead*255/700)
+            lightValue = int(255 - lightRead*255/minLight)
         else:
             lightValue = ledLights[ledState]
         # print("LED set to react to => " + str(lightRead) + " light value.")
