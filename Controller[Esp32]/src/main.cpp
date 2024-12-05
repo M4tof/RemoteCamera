@@ -11,7 +11,7 @@ const int StateLED0 = 23;
 const int StateLED1 = 22;
 const int StateLED2 = 21;
 
-const int Presses_Size = 1;
+const int Presses_Size = 4;
 volatile char Presses[Presses_Size];
 volatile int pressIndex = 0;
 
@@ -22,7 +22,7 @@ int State = 0;
 
 BluetoothSerial SerialBT;
 
-const unsigned long debounceTime = 150;
+const unsigned long debounceTime = 300;
 unsigned long lastPressTime[4] = {0, 0, 0, 0};
 
 void IRAM_ATTR upButtonPress() {
