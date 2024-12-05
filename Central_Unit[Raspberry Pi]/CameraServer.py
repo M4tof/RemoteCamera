@@ -296,16 +296,6 @@ def lcdControler():
             case 2:
                 lcd.message("Dolne serwo:" + str(servoBase) ,1)
                 lcd.message("Gorne serwo:" + str(servoUpper),2)
-            case 3:
-                text = f"White Balance Blue: {whiteBalanceBlue}, White Balance Red: {whiteBalanceRed}, Analogue Gain: {analogueGain}, Sharpness: {sharpness} "
-                full_text = text + text
-                for i in range(len(text)):  # 16 is the number of characters that fit on the LCD screen
-                    scroll_text = full_text[i:i+16]
-                    lcd.message("Wartosci kamery:",1)  # Clear the second line
-                    lcd.message(scroll_text,2)  # Display the current window of text
-                    time.sleep(0.4)
-                    if Current != lcdState or stop_threads:
-                        break
             case _:
                 if executiveAlive > 0:
                     lcd.message("Wykonawcze On",1)
@@ -348,8 +338,6 @@ def executiveUnitControll():
         if last_command["servoUpper"] != servoUpper:
             ser.write(f'u{servoUpper}\n'.encode('utf-8'))
             last_command["servoUpper"] = servoUpper
-
-        time.sleep(0.1)  # Adjust delay to avoid flooding the UART
 
 
 def cleanup():
