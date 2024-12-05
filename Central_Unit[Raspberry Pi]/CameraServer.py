@@ -59,7 +59,7 @@ def generate_frames():
         frame = picam2.capture_array()
         if frame is None:
             continue
-        # Correct indentation here
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Correct indentation here
         _, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
         yield (b'--frame\r\n'
@@ -187,12 +187,12 @@ def input_processing():
                     case 4:
                         if char == 'L' and whiteBalanceRed > 0:
                             whiteBalanceRed -= 1
-                        if char == 'R' and whiteBalanceRed < 10:
+                        if char == 'R' and whiteBalanceRed < 11:
                             whiteBalanceRed += 1
                     case 5:
                         if char == 'L' and whiteBalanceBlue > 0:
                             whiteBalanceBlue -= 1
-                        if char == 'R' and whiteBalanceBlue < 10:
+                        if char == 'R' and whiteBalanceBlue < 11:
                             whiteBalanceBlue += 1
                     case 6:
                         if char == 'L' and sharpness >= 0:
