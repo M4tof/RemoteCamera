@@ -32,7 +32,7 @@ lightValue = 20
 lightRead = 1000
 ledState = 3
 
-lcdState = 5
+lcdState = 4
 
 executiveAlive = 0
 controllerAlive = 0
@@ -140,7 +140,7 @@ def send_messages(client_sock,var):
 
 def input_processing(client_sock):
     #Serial read from esp32
-    global lightRead, espInput, currVar, lightValue, sharpness, analogueGain, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState
+    global lightRead, espInput, currVar, lightValue, sharpness, analogueGain, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState,controllerAlive
     parsing = False
     number_str = ""
     if espInput:
@@ -191,7 +191,7 @@ def input_processing(client_sock):
                             lcdState -= 1
                         if char == 'R':
                             lcdState += 1
-                        lcdState %= 5
+                        lcdState %= 4
                         espInput = None
                     case 4:
                         if char == 'L' and whiteBalanceRed > 0:
@@ -237,6 +237,7 @@ def input_processing(client_sock):
             + " sharpness-" + str(sharpness) + " analogueGain-" +str(analogueGain))
 
         picam2.set_controls({"Sharpness": sharpness, "AnalogueGain": analogueGain, "ColourGains": (whiteBalanceRed,whiteBalanceBlue)})
+        controllerAlive -= 1
 
 
 def bluetooth_control(): 
@@ -252,7 +253,9 @@ def bluetooth_control():
     client_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
     
     def reconnect():
+        global controllerAlive
         nonlocal client_sock, esp32_address, connected
+        controllerAlive = 0
         while not stop_threads:
             try:
                 client_sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
@@ -269,7 +272,8 @@ def bluetooth_control():
     except bluetooth.BluetoothError as e:
         reconnect()
 
-    while not stop_threads:
+    while not stop_threads:                
+        controllerAlive -= 1
         try:
             if not connected or controllerAlive <= 0:
                 reconnect()
@@ -278,13 +282,13 @@ def bluetooth_control():
                 connected = False
                 reconnect()
             else:
+                print(controllerAlive)
                 input_processing(client_sock)
 
         except bluetooth.BluetoothError as e:
             connected = False
             reconnect()
 
-        controllerAlive -= 1
     client_sock.close()
 
 def lcdControler():
@@ -351,7 +355,7 @@ def executiveUnitControll():
 
 def cleanup():
     global stop_threads
-    print("Cleaning up and shutting down...")
+    print("leaning up and shutting down...")
     
     stop_threads = True
     time.sleep(1)
