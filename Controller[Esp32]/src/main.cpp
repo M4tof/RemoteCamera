@@ -25,6 +25,11 @@ BluetoothSerial SerialBT;
 const unsigned long debounceTime = 300;
 unsigned long lastPressTime[4] = {0, 0, 0, 0};
 
+// LED pattern variables
+unsigned long patternMillis = 0;
+const unsigned long patternInterval = 500; // 500ms per step
+int patternStep = 0;
+
 void IRAM_ATTR upButtonPress() {
   if (millis() - lastPressTime[0] >= debounceTime) {
     if (pressIndex < Presses_Size) {
@@ -85,95 +90,135 @@ void setup() {
   digitalWrite(StateLED2,LOW);
 }
 
+void shiftLEDs() {
+  switch (patternStep) {
+    case 0: // LLH
+      digitalWrite(StateLED0, LOW);
+      digitalWrite(StateLED1, LOW);
+      digitalWrite(StateLED2, HIGH);
+      break;
+    case 1: // LLL
+      digitalWrite(StateLED0, LOW);
+      digitalWrite(StateLED1, LOW);
+      digitalWrite(StateLED2, LOW);
+      break;
+    case 2: // HLL
+      digitalWrite(StateLED0, HIGH);
+      digitalWrite(StateLED1, LOW);
+      digitalWrite(StateLED2, LOW);
+      break;
+    case 3: // LHL
+      digitalWrite(StateLED0, LOW);
+      digitalWrite(StateLED1, HIGH);
+      digitalWrite(StateLED2, LOW);
+      break;
+    case 4: // LLH
+      digitalWrite(StateLED0, LOW);
+      digitalWrite(StateLED1, LOW);
+      digitalWrite(StateLED2, HIGH);
+      break;
+  }
+  patternStep = (patternStep + 1) % 5; // Cycle through the pattern steps
+}
+
 void loop() {
   unsigned long currentMillis = millis();
 
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
+  if (SerialBT.hasClient()) {
+    if (currentMillis - previousMillis >= interval) {
+      previousMillis = currentMillis;
+      
+      int sum = 0;
+      int max = -1;
+      int min = 99999;
+      for (int i=0; i < 18; i++){
+        int analogValue = analogRead(LIGHT_READ_PIN);
+        sum += analogValue; 
+        if (analogValue > max){
+          max = analogValue;
+        }
+        else if (analogValue < min){
+          min = analogValue;
+        }
+        delay(10);
+      }
+
+      int averageRead = (sum - max - min)/16;
+
+      String wiadomosc = 'S'+String(averageRead); //S2020
+      SerialBT.println(wiadomosc);
+    }
+
+
+    if (pressIndex > 0) {
+      for (int i = 0; i < pressIndex; i++) {
+        SerialBT.println(Presses[i]); //U or D or L or R
+      }
+      pressIndex = 0; // Reset the index after reading presses
+    }
     
-    int sum = 0;
-    int max = -1;
-    int min = 99999;
-    for (int i=0; i < 18; i++){
-      int analogValue = analogRead(LIGHT_READ_PIN);
-      sum += analogValue; 
-      if (analogValue > max){
-        max = analogValue;
+    if (SerialBT.available()){
+      char incoming = SerialBT.read();
+      String wiadomosc = "State: " + String(incoming);
+
+      if(incoming >= 48 && incoming <=55){
+        State = incoming-48;
+        delay(10);
       }
-      else if (analogValue < min){
-        min = analogValue;
-      }
-      delay(10);
     }
 
-    int averageRead = (sum - max - min)/16;
-
-    String wiadomosc = 'S'+String(averageRead); //S2020
-    SerialBT.println(wiadomosc);
-  }
 
 
-  if (pressIndex > 0) {
-    for (int i = 0; i < pressIndex; i++) {
-      SerialBT.println(Presses[i]); //U or D or L or R
+    switch (State) {
+    case 0:
+      digitalWrite(StateLED0,LOW);
+      digitalWrite(StateLED1,LOW);
+      digitalWrite(StateLED2,LOW);
+      break;
+    case 1:
+      digitalWrite(StateLED0,HIGH);
+      digitalWrite(StateLED1,LOW);
+      digitalWrite(StateLED2,LOW);
+      break;
+    case 2:
+      digitalWrite(StateLED0,LOW);
+      digitalWrite(StateLED1,HIGH);
+      digitalWrite(StateLED2,LOW);
+      break;
+    case 3:
+      digitalWrite(StateLED0,HIGH);
+      digitalWrite(StateLED1,HIGH);
+      digitalWrite(StateLED2,LOW);
+      break;
+    case 4:
+      digitalWrite(StateLED0,LOW);
+      digitalWrite(StateLED1,LOW);
+      digitalWrite(StateLED2,HIGH);
+      break;
+    case 5:
+      digitalWrite(StateLED0,HIGH);
+      digitalWrite(StateLED1,LOW);
+      digitalWrite(StateLED2,HIGH);
+      break;
+    case 6:
+      digitalWrite(StateLED0,LOW);
+      digitalWrite(StateLED1,HIGH);
+      digitalWrite(StateLED2,HIGH);
+      break;
+    default:
+      digitalWrite(StateLED0,HIGH);
+      digitalWrite(StateLED1,HIGH);
+      digitalWrite(StateLED2,HIGH);
+      break;
     }
-    pressIndex = 0; // Reset the index after reading presses
   }
-  
-  if (SerialBT.available()){
-    char incoming = SerialBT.read();
-    String wiadomosc = "State: " + String(incoming);
 
-    if(incoming >= 48 && incoming <=55){
-      State = incoming-48;
-      delay(10);
+  else{
+    if (currentMillis - patternMillis >= patternInterval) {
+      patternMillis = currentMillis;
+      shiftLEDs();
     }
   }
 
-
-
-  switch (State) {
-  case 0:
-    digitalWrite(StateLED0,LOW);
-    digitalWrite(StateLED1,LOW);
-    digitalWrite(StateLED2,LOW);
-    break;
-  case 1:
-    digitalWrite(StateLED0,HIGH);
-    digitalWrite(StateLED1,LOW);
-    digitalWrite(StateLED2,LOW);
-    break;
-  case 2:
-    digitalWrite(StateLED0,LOW);
-    digitalWrite(StateLED1,HIGH);
-    digitalWrite(StateLED2,LOW);
-    break;
-  case 3:
-    digitalWrite(StateLED0,HIGH);
-    digitalWrite(StateLED1,HIGH);
-    digitalWrite(StateLED2,LOW);
-    break;
-  case 4:
-    digitalWrite(StateLED0,LOW);
-    digitalWrite(StateLED1,LOW);
-    digitalWrite(StateLED2,HIGH);
-    break;
-  case 5:
-    digitalWrite(StateLED0,HIGH);
-    digitalWrite(StateLED1,LOW);
-    digitalWrite(StateLED2,HIGH);
-    break;
-  case 6:
-    digitalWrite(StateLED0,LOW);
-    digitalWrite(StateLED1,HIGH);
-    digitalWrite(StateLED2,HIGH);
-    break;
-  default:
-    digitalWrite(StateLED0,HIGH);
-    digitalWrite(StateLED1,HIGH);
-    digitalWrite(StateLED2,HIGH);
-    break;
-  }
-
-  delay(100);
+  delay(50);
 }
