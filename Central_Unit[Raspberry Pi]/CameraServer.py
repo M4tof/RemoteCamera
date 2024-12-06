@@ -163,50 +163,58 @@ def input_processing():
             elif char == 'S':
                 parsing = True
                 continue
-            elif char == 'L' or char == 'R':
+            elif (char == 'L' or char == 'R') and espInput != None :
                 match currVar:
                     case 0:
                         if char == 'L' and servoBase > 0:
                             servoBase -= 2
                         elif char == 'R' and servoBase < 180:
                             servoBase += 2
+                        espInput = None
                     case 1:
                         if char == 'L' and servoUpper > 20:
                             servoUpper -= 2
                         elif char == 'R' and servoUpper < 160:
                             servoUpper += 2
+                        espInput = None
                     case 2:
                         if char == 'L':
                             ledState -= 1
                         elif char == 'R':
                             ledState += 1
                         ledState = ledState%4
+                        espInput = None
                     case 3:
                         if char == 'L':
                             lcdState -= 1
                         if char == 'R':
                             lcdState += 1
                         lcdState %= 5
+                        espInput = None
                     case 4:
                         if char == 'L' and whiteBalanceRed > 0:
                             whiteBalanceRed -= 1
                         if char == 'R' and whiteBalanceRed < 11:
                             whiteBalanceRed += 1
+                            espInput = None
                     case 5:
                         if char == 'L' and whiteBalanceBlue > 0:
                             whiteBalanceBlue -= 1
                         if char == 'R' and whiteBalanceBlue < 11:
                             whiteBalanceBlue += 1
+                            espInput = None
                     case 6:
                         if char == 'L' and sharpness >= 0:
                             sharpness -= 1
                         if char == 'R' and sharpness < 17:
                             sharpness += 1
+                            espInput = None
                     case _:
                         if char == 'L' and analogueGain > 0:
                             analogueGain -= 1
                         if char == 'R' and analogueGain < 13:
                             analogueGain += 1
+                            espInput = None
                             
         if number_str:
             lightRead = int(number_str)
