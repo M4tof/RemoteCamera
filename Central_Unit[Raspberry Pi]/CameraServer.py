@@ -128,17 +128,17 @@ def receive_messages(client_sock):
     except bluetooth.BluetoothError as e:
         return False
 
-def send_messages(client_sock):
-    global currVar
+def send_messages(client_sock,var):
     flag = True
     while flag:
         try:
-            client_sock.send(str(currVar)+"\n")
+            print("MESSAGE SENT")
+            client_sock.send(str(var)+"\n")
             flag = False
         except bluetooth.BluetoothError as e:
             flag = True
 
-def input_processing():
+def input_processing(client_sock):
     #Serial read from esp32
     global lightRead, espInput, currVar, lightValue, sharpness, analogueGain, whiteBalanceRed, whiteBalanceBlue, servoBase, servoUpper,ledState, lcdState
     parsing = False
@@ -152,12 +152,14 @@ def input_processing():
                 currVar += 1
                 currVar %= 8
                 print("State: " + str(currVar))
+                send_messages(client_sock,currVar)
                 espInput = None
                 break
             elif char == 'D' and espInput != None:
                 currVar -= 1
                 currVar %= 8
                 print("State: " + str(currVar))
+                send_messages(client_sock,currVar)
                 espInput = None
                 break
             elif char == 'S':
@@ -210,7 +212,7 @@ def input_processing():
                             sharpness += 1
                             espInput = None
                     case _:
-                        if char == 'L' and analogueGain > 0:
+                        if char == 'L' and analogueGain > 1:
                             analogueGain -= 1
                         if char == 'R' and analogueGain < 13:
                             analogueGain += 1
@@ -276,8 +278,7 @@ def bluetooth_control():
                 connected = False
                 reconnect()
             else:
-                input_processing()
-                send_messages(client_sock)
+                input_processing(client_sock)
 
         except bluetooth.BluetoothError as e:
             connected = False
